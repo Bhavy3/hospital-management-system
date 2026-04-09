@@ -1,0 +1,10 @@
+[tool.pyright]
+include = ["backend"]
+executionEnvironments = [
+  { root = "backend" }
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["backend"]
+django_find_project = false
+DJANGO_SETTINGS_MODULE = "hospital_management.settings"
