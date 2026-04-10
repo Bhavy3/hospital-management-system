@@ -2,7 +2,7 @@ import os
 import sys
 import django
 import random
-from datetime import date, timedelta
+from datetime import date, time
 
 # Add the project directory to sys.path for standalone execution
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -20,6 +20,7 @@ from hospital_management.apps.billing.models import Payment
 from hospital_management.apps.users.models import User
 from hospital_management.apps.staff.models import Staff
 
+
 def seed():
     # 1. Create Staff
     staff_data = [
@@ -27,6 +28,7 @@ def seed():
         {'name': 'Receptionist Peter', 'role': 'receptionist', 'email': 'peter@hospital.com'},
         {'name': 'Technician Mark', 'role': 'lab_tech', 'email': 'mark@hospital.com'},
     ]
+
     for s in staff_data:
         Staff.objects.get_or_create(
             email=s['email'],
@@ -39,18 +41,29 @@ def seed():
         )
     print("Staff seeded.")
 
-    # 2. Create Doctors
-    specializations = ['Cardiology', 'Neurology', 'Pediatrics', 'Orthopedics', 'General Medicine']
+    # 2. Create Doctors (WITH USER LINK 🔥)
     doctors_data = [
         {'name': 'Sarah Smith', 'spec': 'Cardiology', 'fees': 500, 'email': 'sarah@hospital.com'},
         {'name': 'James Wilson', 'spec': 'Neurology', 'fees': 700, 'email': 'james@hospital.com'},
         {'name': 'Emily Davis', 'spec': 'Pediatrics', 'fees': 400, 'email': 'emily@hospital.com'},
     ]
-    
+
+    doctors = []
+
     for d in doctors_data:
-        Doctor.objects.get_or_create(
+        # 🔥 Create user
+        user, _ = User.objects.get_or_create(
+            email=d['email'],
+            defaults={'username': d['email']}
+        )
+        user.set_password("123456")
+        user.save()
+
+        # 🔥 Link doctor with user
+        doctor, _ = Doctor.objects.get_or_create(
             email=d['email'],
             defaults={
+                'user': user,  # IMPORTANT FIX
                 'name': d['name'],
                 'specialization': d['spec'],
                 'mobile': '9876543210',
@@ -59,9 +72,12 @@ def seed():
                 'availability_status': 'Available'
             }
         )
+
+        doctors.append(doctor)
+
     print("Doctors seeded.")
 
-    # 2. Create Patients
+    # 3. Create Patients
     patients_data = [
         {'name': 'John Doe', 'gender': 'M'},
         {'name': 'Jane Watson', 'gender': 'F'},
@@ -69,9 +85,11 @@ def seed():
         {'name': 'Alice Johnson', 'gender': 'F'},
         {'name': 'Michael Scott', 'gender': 'M'},
     ]
-    
+
+    patients = []
+
     for p in patients_data:
-        Patient.objects.get_or_create(
+        patient, _ = Patient.objects.get_or_create(
             name=p['name'],
             defaults={
                 'gender': p['gender'],
@@ -80,15 +98,17 @@ def seed():
                 'age': random.randint(20, 70)
             }
         )
+        patients.append(patient)
+
     print("Patients seeded.")
 
-    # 3. Create Rooms
+    # 4. Create Rooms
     rooms_data = [
         {'no': '101', 'type': 'General', 'charges': 1000},
         {'no': '201', 'type': 'Private', 'charges': 3000},
         {'no': 'ICU-1', 'type': 'ICU', 'charges': 8000},
     ]
-    
+
     for r in rooms_data:
         Room.objects.get_or_create(
             room_no=r['no'],
@@ -100,35 +120,38 @@ def seed():
         )
     print("Rooms seeded.")
 
-    # 4. Create some Appointments for today
+    # 5. Create Appointments for today (FIXED 🔥)
     today = date.today()
-    all_patients = list(Patient.objects.all())
-    all_doctors = list(Doctor.objects.all())
-    
-    if all_patients and all_doctors:
-        for i in range(3):
-            Appointment.objects.create(
-                patient=random.choice(all_patients),
-                doctor=random.choice(all_doctors),
-                date=today,
-                time="10:00",
-                reason="Regular Checkup",
-                priority="Normal",
-                queue_status="Waiting"
-            )
+
+    if patients and doctors:
+        for doctor in doctors:  # 🔥 each doctor gets patients
+            for i in range(3):
+                Appointment.objects.create(
+                    patient=random.choice(patients),
+                    doctor=doctor,  # IMPORTANT FIX
+                    date=today,
+                    time=time(10, 0),  # FIXED TIME
+                    reason="Regular Checkup",
+                    priority="Normal",
+                    queue_status="Waiting",
+                    status="Scheduled"  # IMPORTANT FIX
+                )
+
         print("Appointments today seeded.")
 
-    # 5. Create some Payments for today
-    if all_patients:
+    # 6. Create Payments
+    if patients:
         for i in range(2):
             Payment.objects.create(
-                patient=random.choice(all_patients),
+                patient=random.choice(patients),
                 amount=random.randint(500, 2000),
                 payment_type='Cash',
                 date=today,
                 remarks="OPD Consultation Fee"
             )
+
         print("Payments today seeded.")
+
 
 if __name__ == "__main__":
     seed()
